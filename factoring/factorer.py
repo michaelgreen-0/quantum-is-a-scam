@@ -17,7 +17,7 @@ class Factorer:
     def shor_factor(self) -> tuple[int, int]:
         while True:
             greatest_common_divisor = gcd(self.__a, self.N)
-            if greatest_common_divisor != 1:
+            if greatest_common_divisor != 1: # sometimes will end here on first iteration if first guess of a is a factor of N
                 return greatest_common_divisor, self.N // greatest_common_divisor
 
             # Find the period 'r' of a^x mod N
