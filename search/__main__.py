@@ -1,102 +1,43 @@
-# taken from https://quantum.cloud.ibm.com/docs/en/tutorials/grovers-algorithm
+from search.searcher import Searcher
+import argparse
+import time
 
-# Built-in modules
-import math
-import matplotlib.pyplot as plt
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("list_to_search", help="List to search", nargs='+', type=int)
+    parser.add_argument("element_to_find", help="Element to find", type=int)
+    parser.add_argument(
+        "--real", 
+        help="Use a real quantum IBM instance instead of a local simulator",
+        action="store_true",
+        dest="use_real_device"
+    )
+    args = parser.parse_args()
 
-# Imports from Qiskit
-from qiskit import QuantumCircuit
-from qiskit.circuit.library import grover_operator, MCMTGate, ZGate
-from qiskit.visualization import plot_distribution
-from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+    searcher = Searcher(
+        list_to_search = args.list_to_search, 
+        use_real_device=args.use_real_device
+    )    
 
+    start_classical = time.time()
+    classical_result = searcher.classical_search(args.element_to_find)
+    end_classical = time.time()
+    print(f"Classical search found element at index: {classical_result}")
+    print(f"Time: {(end_classical-start_classical):.6f} seconds")
 
-# Imports from Qiskit Runtime
-from qiskit_ibm_runtime import QiskitRuntimeService
-from qiskit_ibm_runtime import SamplerV2 as Sampler
- 
- 
-def grover_oracle(marked_states):
-    """Build a Grover oracle for multiple marked states
- 
-    Here we assume all input marked states have the same number of bits
- 
-    Parameters:
-        marked_states (str or list): Marked states of oracle
- 
-    Returns:
-        QuantumCircuit: Quantum circuit representing Grover oracle
-    """
-    if not isinstance(marked_states, list):
-        marked_states = [marked_states]
-    # Compute the number of qubits in circuit
-    num_qubits = len(marked_states[0])
- 
-    qc = QuantumCircuit(num_qubits)
-    # Mark each target state in the input list
-    for target in marked_states:
-        # Flip target bit-string to match Qiskit bit-ordering
-        rev_target = target[::-1]
-        # Find the indices of all the '0' elements in bit-string
-        zero_inds = [
-            ind
-            for ind in range(num_qubits)
-            if rev_target.startswith("0", ind)
-        ]
-        # Add a multi-controlled Z-gate with pre- and post-applied X-gates (open-controls)
-        # where the target bit-string has a '0' entry
-        if zero_inds:
-            qc.x(zero_inds)
-        qc.compose(MCMTGate(ZGate(), num_qubits - 1, 1), inplace=True)
-        if zero_inds:
-            qc.x(zero_inds)
-    return qc
+    start_quantum = time.time()
+    # For simplicity, we'll search for the binary representation of the index.
+    # This is not a perfect comparison to the classical search, but demonstrates Grover's.
+    num_qubits = (len(args.list_to_search)-1).bit_length()
+    binary_index_to_find = format(args.list_to_search.index(args.element_to_find), f'0{num_qubits}b')
+    
+    quantum_result = searcher.grover_search(binary_index_to_find)
+    end_quantum = time.time()
+    
+    print(f"Quantum search result: {quantum_result}")
+    print(f"Time: {(end_quantum-start_quantum):.6f} seconds")
+    searcher.plot_distribution(quantum_result)
+    
 
-
-# To run on hardware, select the backend with the fewest number of jobs in the queue
-service = QiskitRuntimeService()
-backend = service.least_busy(
-    operational=True, simulator=False, min_num_qubits=127
-)
-backend.name
-
-marked_states = ["011", "100"]
- 
-oracle = grover_oracle(marked_states)
-oracle.draw(output="mpl", style="iqp")
-
-grover_op = grover_operator(oracle)
-grover_op.decompose().draw(output="mpl", style="iqp")
-
-optimal_num_iterations = math.floor(
-    math.pi
-    / (4 * math.asin(math.sqrt(len(marked_states) / 2**grover_op.num_qubits)))
-)
-
-qc = QuantumCircuit(grover_op.num_qubits)
-# Create even superposition of all basis states
-qc.h(range(grover_op.num_qubits))
-# Apply Grover operator the optimal number of times
-qc.compose(grover_op.power(optimal_num_iterations), inplace=True)
-# Measure all qubits
-qc.measure_all()
-qc.draw(output="mpl", style="iqp")
-
-
-target = backend.target
-pm = generate_preset_pass_manager(target=target, optimization_level=3)
- 
-circuit_isa = pm.run(qc)
-circuit_isa.draw(output="mpl", idle_wires=False, style="iqp")
-
-
-# To run on local simulator:
-#   1. Use the StatevectorSampler from qiskit.primitives instead
-sampler = Sampler(mode=backend)
-sampler.options.default_shots = 10_000
-result = sampler.run([circuit_isa]).result()
-dist = result[0].data.meas.get_counts()
-
-plot_distribution(dist)
-
-plt.savefig('search/distribution.png')
+if __name__ == "__main__":
+    main()
