@@ -32,7 +32,7 @@ dill==0.4.0
 distlib==0.4.0
 executing==2.2.1
 fastjsonschema==2.21.2
-filelock==3.20.1
+filelock==3.20.3
 fonttools==4.60.2
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -115,7 +115,7 @@ ptyprocess==0.7.0
 pure-eval==0.2.3
 py-spy==0.4.1
 pyarrow==18.1.0
-pyasn1==0.6.1
+pyasn1==0.6.2
 pyasn1-modules==0.4.2
 pycparser==2.23
 pydantic==2.12.3
